@@ -1,1423 +1,355 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>
-      Full 3D Car Game — Persistent Users, 1000 Levels, Google Sheets Save
-    </title>
-    <style>
-      html,
-      body {
-        height: 100%;
-        margin: 0;
-        overflow: hidden;
-        background: #062122;
-        color: #fff;
-        font-family: Inter, system-ui, Segoe UI, Roboto, Arial;
-      }
-      #gameContainer {
-        position: fixed;
-        left: 0;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        display: block;
-      }
-      canvas {
-        display: block;
-      }
-      /* HUD */
-      #hud {
-        position: fixed;
-        left: 12px;
-        top: 12px;
-        z-index: 60;
-        background: linear-gradient(
-          180deg,
-          rgba(0, 0, 0, 0.28),
-          rgba(0, 0, 0, 0.12)
-        );
-        padding: 10px 12px;
-        border-radius: 10px;
-        backdrop-filter: blur(6px);
-        font-size: 14px;
-      }
-      #minimapWrapper {
-        position: fixed;
-        right: 12px;
-        top: 12px;
-        z-index: 50;
-        width: 260px;
-        height: 160px;
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-        background: linear-gradient(180deg, #05171b, #021016);
-      }
-      #minimap {
-        width: 100%;
-        height: 100%;
-        display: block;
-      }
-      /* Shop overlay */
-      #shopOverlay {
-        position: fixed;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: 920px;
-        max-width: 96%;
-        height: 540px;
-        max-height: 92%;
-        background: linear-gradient(
-          180deg,
-          rgba(6, 12, 18, 0.98),
-          rgba(3, 6, 10, 0.98)
-        );
-        border-radius: 14px;
-        z-index: 100;
-        display: none;
-        padding: 18px;
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
-      }
-      .car-card {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 10px;
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.02);
-        margin-bottom: 10px;
-      }
-      .btn {
-        padding: 8px 14px;
-        border-radius: 10px;
-        background: #0d6efd;
-        color: #fff;
-        border: none;
-        cursor: pointer;
-      }
-      #footerHints {
-        position: fixed;
-        left: 12px;
-        bottom: 12px;
-        z-index: 40;
-        font-size: 13px;
-        color: #cfe;
-      }
-      /* On-screen manual control buttons */
-      .control-pad {
-        position: fixed;
-        right: 12px;
-        bottom: 12px;
-        z-index: 80;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-      .control-row {
-        display: flex;
-        gap: 8px;
-      }
-      .ctl-btn {
-        width: 64px;
-        height: 64px;
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.04);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        color: #fff;
-        border: 1px solid rgba(255, 255, 255, 0.04);
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
-        cursor: pointer;
-        user-select: none;
-      }
-      .ctl-btn:active {
-        transform: translateY(2px);
-      }
-      .brake {
-        background: linear-gradient(180deg, #6b0b0b, #3c0202);
-      }
-      @media (max-width: 900px) {
-        #joystick {
-          display: block;
-        }
-      }
-      /* Login modal */
-      #loginModal {
-        position: fixed;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 300;
-        background: linear-gradient(180deg, #05141a, #021014);
-        padding: 18px;
-        border-radius: 12px;
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
-        width: 360px;
-      }
-      #loginModal input {
-        width: 100%;
-        padding: 8px;
-        margin-top: 8px;
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background: transparent;
-        color: #fff;
-      }
-      #fullMapOverlay {
-        position: fixed;
-        left: 0;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 500;
-        background: rgba(0, 0, 0, 0.85);
-        display: none;
-        align-items: center;
-        justify-content: center;
-      }
-      #fullMap {
-        width: 88%;
-        height: 88%;
-        border-radius: 12px;
-        background: #041018;
-      }
-      /* Level complete overlay */
-      #levelCompleteOverlay {
-        position: fixed;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 200;
-        background: linear-gradient(
-          180deg,
-          rgba(2, 8, 10, 0.98),
-          rgba(8, 14, 18, 0.98)
-        );
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
-        display: none;
-        min-width: 360px;
-        text-align: center;
-      }
-      #levelCompleteOverlay h2 {
-        margin: 0 0 8px 0;
-      }
-      #levelCompleteOverlay p {
-        opacity: 0.9;
-      }
-      #levelCompleteOverlay .actions {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
-        margin-top: 12px;
-      }
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Full 3D Car Game — Persistent Users, 1000 Levels, Google Sheets Save</title>
+<style>
+html, body {height:100%; margin:0; overflow:hidden; background:#062122; color:#fff; font-family:Inter, system-ui, Segoe UI, Roboto, Arial;}
+#gameContainer {position:fixed; left:0; top:0; right:0; bottom:0; display:block;}
+canvas {display:block;}
+#hud {position:fixed; left:12px; top:12px; z-index:60; background:linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.12)); padding:10px 12px; border-radius:10px; backdrop-filter:blur(6px); font-size:14px;}
+#minimapWrapper {position:fixed; right:12px; top:12px; z-index:50; width:260px; height:160px; border-radius:10px; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,0.6); background:linear-gradient(180deg,#05171b,#021016);}
+#minimap {width:100%; height:100%; display:block;}
+#shopOverlay {position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:920px; max-width:96%; height:540px; max-height:92%; background:linear-gradient(180deg,rgba(6,12,18,0.98),rgba(3,6,10,0.98)); border-radius:14px; z-index:100; display:none; padding:18px; box-shadow:0 30px 80px rgba(0,0,0,0.7);}
+.car-card {display:flex; align-items:center; gap:12px; padding:10px; border-radius:10px; background:rgba(255,255,255,0.02); margin-bottom:10px;}
+.btn {padding:8px 14px; border-radius:10px; background:#0d6efd; color:#fff; border:none; cursor:pointer;}
+#footerHints {position:fixed; left:12px; bottom:12px; z-index:40; font-size:13px; color:#cfe;}
+.control-pad {position:fixed; right:12px; bottom:12px; z-index:80; display:flex; flex-direction:column; gap:8px;}
+.control-row {display:flex; gap:8px;}
+.ctl-btn {width:64px; height:64px; border-radius:10px; background:rgba(255,255,255,0.04); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; border:1px solid rgba(255,255,255,0.04); box-shadow:0 6px 16px rgba(0,0,0,0.5); cursor:pointer; user-select:none;}
+.ctl-btn:active {transform:translateY(2px);}
+.brake {background:linear-gradient(180deg,#6b0b0b,#3c0202);}
+#loginModal {position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:300; background:linear-gradient(180deg,#05141a,#021014); padding:18px; border-radius:12px; box-shadow:0 30px 80px rgba(0,0,0,0.7); width:360px;}
+#loginModal input {width:100%; padding:8px; margin-top:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:transparent; color:#fff;}
+#fullMapOverlay {position:fixed; left:0; top:0; right:0; bottom:0; z-index:500; background:rgba(0,0,0,0.85); display:none; align-items:center; justify-content:center;}
+#fullMap {width:88%; height:88%; border-radius:12px; background:#041018;}
+#levelCompleteOverlay {position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:200; background:linear-gradient(180deg,rgba(2,8,10,0.98),rgba(8,14,18,0.98)); padding:20px; border-radius:12px; box-shadow:0 30px 80px rgba(0,0,0,0.7); display:none; min-width:360px; text-align:center;}
+#levelCompleteOverlay h2 {margin:0 0 8px 0;}
+#levelCompleteOverlay p {opacity:0.9;}
+#levelCompleteOverlay .actions {display:flex; gap:10px; justify-content:center; margin-top:12px;}
+</style>
+</head>
+<body>
+<div id="gameContainer"></div>
+<div id="hud">
+  <div>User: <span id="userName">Guest</span></div>
+  <div>Level: <span id="levelLabel">1</span> / <span id="totalLevels">1000</span></div>
+  <div>Coins: <span id="coinsLabel">0</span></div>
+  <div>Time: <span id="timeLabel">0.00</span>s</div>
+</div>
+<div id="minimapWrapper"><canvas id="minimap"></canvas></div>
 
-      body {
-        margin: 0;
-        overflow: hidden;
-      }
-      canvas {
-        display: block;
-      }
-      #controls {
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        gap: 10px;
-      }
-      .btn {
-        width: 60px;
-        height: 60px;
-        font-size: 18px;
-        border-radius: 50%;
-        border: none;
-        background: rgba(0, 0, 0, 0.5);
-        color: white;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="gameContainer"></div>
-    <div id="hud">
-      <div>User: <span id="userName">Guest</span></div>
-      <div>
-        Level: <span id="levelLabel">1</span> /
-        <span id="totalLevels">1000</span>
-      </div>
-      <div>Coins: <span id="coinsLabel">0</span></div>
-      <div>Time: <span id="timeLabel">0.00</span>s</div>
-    </div>
-    <div id="minimapWrapper"><canvas id="minimap"></canvas></div>
+<!-- Login modal -->
+<div id="loginModal">
+  <h3>Sign in</h3>
+  <div class="muted">Enter your name and mobile number. You'll be remembered on this device.</div>
+  <input id="loginName" placeholder="Full name" />
+  <input id="loginMobile" placeholder="Mobile number (ID)" />
+  <button id="loginBtn" class="btn" style="margin-top:10px;width:100%">Sign in & Save</button>
+  <div style="margin-top:8px; font-size:12px; opacity:0.8">
+    Your data is stored locally and optionally sent to your Google Sheet when you enable it in settings.
+  </div>
+</div>
 
-    <!-- Login modal (first-run) -->
-    <div id="loginModal" style="display: none">
-      <h3>Sign in</h3>
-      <div class="muted">
-        Enter your name and mobile number. You'll be remembered on this device.
-      </div>
-      <input id="loginName" placeholder="Full name" />
-      <input id="loginMobile" placeholder="Mobile number (ID)" />
-      <button id="loginBtn" class="btn" style="margin-top: 10px; width: 100%">
-        Sign in & Save
-      </button>
-      <div style="margin-top: 8px; font-size: 12px; opacity: 0.8">
-        Your data is stored locally and optionally sent to your Google Sheet
-        when you enable it in settings.
+<!-- Shop overlay -->
+<div id="shopOverlay" aria-hidden="true">
+  <button id="closeShop" class="btn" style="position:absolute;right:14px;top:12px">Close</button>
+  <h2>Garage — Buy / Select Cars</h2>
+  <div style="display:flex; gap:12px; height:100%; align-items:flex-start">
+    <div style="flex:1; overflow:auto; padding-right:8px"><div id="carsList"></div></div>
+    <div style="width:260px">
+      <div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:8px;">
+        <h4>Your Coins</h4>
+        <div style="font-size:20px" id="shopCoins">0</div>
+        <hr style="opacity:0.08; border-color:#fff"/>
+        <div><strong>Selected:</strong> <span id="shopSelected">None</span></div>
+        <div style="height:12px"></div>
+        <button id="buyBtn" class="btn" style="width:100%">Buy / Select</button>
       </div>
     </div>
-
-    <!-- Shop overlay -->
-    <div id="shopOverlay" aria-hidden="true">
-      <button
-        id="closeShop"
-        class="btn"
-        style="position: absolute; right: 14px; top: 12px"
-      >
-        Close
-      </button>
-      <h2>Garage — Buy / Select Cars</h2>
-      <div
-        style="display: flex; gap: 12px; height: 100%; align-items: flex-start"
-      >
-        <div style="flex: 1; overflow: auto; padding-right: 8px">
-          <div id="carsList"></div>
-        </div>
-        <div style="width: 260px">
-          <div
-            style="
-              background: rgba(255, 255, 255, 0.02);
-              padding: 12px;
-              border-radius: 8px;
-            "
-          >
-            <h4>Your Coins</h4>
-            <div style="font-size: 20px" id="shopCoins">0</div>
-            <hr style="opacity: 0.08; border-color: #fff" />
-            <div>
-              <strong>Selected:</strong> <span id="shopSelected">None</span>
-            </div>
-            <div style="height: 12px"></div>
-            <button id="buyBtn" class="btn" style="width: 100%">
-              Buy / Select
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Full map overlay (visible on button click) -->
-    <div
-      id="fullMapOverlay"
-      style="display: none; align-items: center; justify-content: center"
-    >
-      <div id="fullMap"></div>
-    </div>
-
-    <!-- Level complete overlay -->
-    <div id="levelCompleteOverlay">
-      <h2 id="completeTitle">Level Complete</h2>
-      <p id="completeMsg">
-        You finished level <span id="completeLevel">1</span>!
-      </p>
-      <div class="muted">Total coins: <span id="completeCoins">0</span></div>
-      <div class="actions">
-        <button id="nextLevelBtn" class="btn">Next Level</button>
-        <button id="skipTo3Btn" class="btn">Go to Level 3</button>
-        <button id="closeOverlayBtn" class="btn">Close</button>
-      </div>
-    </div>
-
-    <!-- Controls -->
-    <div class="control-pad" id="controls">
-      <div class="control-row">
-        <div class="ctl-btn" id="btnLeft">◄</div>
-        <div class="ctl-btn" id="btnForward">▲</div>
-        <div class="ctl-btn" id="btnRight">►</div>
-      </div>
-      <div class="control-row">
-        <div class="ctl-btn brake" id="btnBrake">Brake</div>
-        <div class="ctl-btn" id="btnBoost">Boost</div>
-        <div class="ctl-btn" id="btnShop">Shop</div>
-      </div>
-      <div style="margin-top: 8px; text-align: center">
-        <button id="btnFullMap" class="btn">Full Map</button>
-      </div>
-    </div>
-
-    <div id="footerHints">
-      Controls: W/A/S/D or ←→↑↓ • On-screen buttons bottom-right • Shift=Boost •
-      R=Restart • N=Next • M=Toggle minimap • S=Shop
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-    <script>
-      // Scene setup
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(
-        75,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        1000
-      );
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
-
-      // Simple ground
-      const groundGeometry = new THREE.PlaneGeometry(100, 100);
-      const groundMaterial = new THREE.MeshStandardMaterial({
-        color: 0x228b22,
-      });
-      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-      ground.rotation.x = -Math.PI / 2;
-      scene.add(ground);
-
-      // Basic car (a box)
-      const carGeometry = new THREE.BoxGeometry(1, 0.5, 2);
-      const carMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-      const car = new THREE.Mesh(carGeometry, carMaterial);
-      car.position.y = 0.25;
-      scene.add(car);
-
-      // Light
-      const light = new THREE.DirectionalLight(0xffffff, 1);
-      light.position.set(10, 20, 10);
-      scene.add(light);
-      const ambientLight = new THREE.AmbientLight(0x404040);
-      scene.add(ambientLight);
-
-      camera.position.set(0, 5, 5);
-      camera.lookAt(car.position);
-
-      // Car controls
-      let moveForward = false,
-        moveBackward = false,
-        moveLeft = false,
-        moveRight = false;
-
-      document
-        .getElementById("up")
-        .addEventListener("touchstart", () => (moveForward = true));
-      document
-        .getElementById("up")
-        .addEventListener("touchend", () => (moveForward = false));
-
-      document
-        .getElementById("down")
-        .addEventListener("touchstart", () => (moveBackward = true));
-      document
-        .getElementById("down")
-        .addEventListener("touchend", () => (moveBackward = false));
-
-      document
-        .getElementById("left")
-        .addEventListener("touchstart", () => (moveLeft = true));
-      document
-        .getElementById("left")
-        .addEventListener("touchend", () => (moveLeft = false));
-
-      document
-        .getElementById("right")
-        .addEventListener("touchstart", () => (moveRight = true));
-      document
-        .getElementById("right")
-        .addEventListener("touchend", () => (moveRight = false));
-
-      const speed = 0.05;
-
-      // Resize handling
-      window.addEventListener("resize", () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
-
-      // Game loop
-      function animate() {
-        requestAnimationFrame(animate);
-
-        if (moveForward) car.position.z -= speed;
-        if (moveBackward) car.position.z += speed;
-        if (moveLeft) car.position.x -= speed;
-        if (moveRight) car.position.x += speed;
-
-        // Keep camera behind car
-        camera.position.x = car.position.x;
-        camera.position.z = car.position.z + 5;
-        camera.lookAt(car.position);
-
-        renderer.render(scene, camera);
-      }
-
-      animate();
-    </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-    <script>
-      /* ========== Full 3D Car Game — persistent users + Google Sheets sync + 1000 levels ==========
-   Features added in this version:
-   - First-time login modal: name + mobile number used as user ID. Saved in localStorage to skip future login.
-   - Coins and owned cars saved per user (keyed by mobile number) in localStorage.
-   - Optional sync to Google Sheets via Apps Script endpoint (set API_URL variable below to your Apps Script Web App URL).
-   - Full-map overlay (click Full Map button to see entire level path and coins).
-   - When buying a car, the in-game car mesh changes shape (different car types) and persists to user profile.
-   - Levels increased up to 1000 (procedurally generated on demand to avoid heavy upfront work).
-   - Finish overlay and next-level / goto-level-3 buttons.
-
-   Instructions:
-   1) Save this file as `full3d-car-game-persistent.html` and open in a modern browser.
-   2) To enable Google Sheets sync, deploy an Apps Script web app that accepts POST JSON and paste its URL into API_URL below.
-      - The script should accept JSON {mobile, name, coins, ownedCars, selectedCar} and append/update your sheet.
-   3) Play: sign in once, collect coins, buy cars, progress across levels (up to 1000).
-*/
-
-      // ---------- Configuration ----------
-      const TOTAL_LEVELS = 1000; // user wanted 1000 levels
-      // OPTIONAL: your Apps Script Web App URL to receive user data (must accept POST JSON). Replace or leave null.
-      const API_URL = null; // e.g. 'https://script.google.com/macros/s/XXXX/exec'
-
-      // ---------- Utility: persistent storage per mobile ID ----------
-      function userKey(mobile) {
-        return `game_user_${mobile}`;
-      }
-
-      // load current session user or show login
-      let currentUser = null; // {name,mobile,coins,owned,selected}
-      function loadUserFromStorage() {
-        const saved = localStorage.getItem("last_logged_user");
-        if (!saved) return null;
-        try {
-          const data = JSON.parse(localStorage.getItem(userKey(saved)));
-          if (data) {
-            return data;
-          }
-        } catch (e) {}
-        return null;
-      }
-
-      function saveUserToStorage(user) {
-        if (!user || !user.mobile) return;
-        localStorage.setItem(userKey(user.mobile), JSON.stringify(user));
-        localStorage.setItem("last_logged_user", user.mobile); // remember login
-        // optionally sync to Google Sheets
-        if (API_URL) {
-          try {
-            fetch(API_URL, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                mobile: user.mobile,
-                name: user.name,
-                coins: user.coins,
-                ownedCars: user.owned,
-                selectedCar: user.selected,
-              }),
-            }).catch((e) => console.warn("sync failed", e));
-          } catch (e) {
-            console.warn(e);
-          }
-        }
-      }
-
-      // ---------- First-run login UI ----------
-      const loginModal = document.getElementById("loginModal");
-      const loginBtn = document.getElementById("loginBtn");
-      const loginName = document.getElementById("loginName");
-      const loginMobile = document.getElementById("loginMobile");
-
-      function showLogin() {
-        loginModal.style.display = "block";
-      }
-      function hideLogin() {
-        loginModal.style.display = "none";
-      }
-
-      loginBtn.addEventListener("click", () => {
-        const name = loginName.value.trim();
-        const mobile = loginMobile.value.trim();
-        if (!name || !mobile) {
-          alert("Please enter name and mobile number. Mobile acts as your ID.");
-          return;
-        }
-        // check if user exists
-        const existing = localStorage.getItem(userKey(mobile));
-        let user;
-        if (existing) {
-          user = JSON.parse(existing);
-          user.name = name;
-        } else {
-          user = { name, mobile, coins: 0, owned: [0], selected: 0 };
-        }
-        currentUser = user;
-        saveUserToStorage(currentUser);
-        hideLogin();
-        document.getElementById("userName").innerText = currentUser.name;
-        updateCoinsUI();
-        applyCar(currentUser.selected);
-      });
-
-      // Attempt to auto-login
-      (function () {
-        const last = localStorage.getItem("last_logged_user");
-        if (last) {
-          const u = loadUserFromStorage();
-          if (u) {
-            currentUser = u;
-            document.getElementById("userName").innerText = currentUser.name;
-          } else {
-            showLogin();
-          }
-        } else {
-          showLogin();
-        }
-      })();
-
-      // ---------- Three.js scene setup ----------
-      const container = document.getElementById("gameContainer");
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setPixelRatio(window.devicePixelRatio || 1);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.shadowMap.enabled = true;
-      container.appendChild(renderer.domElement);
-
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x061a20);
-      scene.fog = new THREE.FogExp2(0x061a20, 0.0009);
-      const camera = new THREE.PerspectiveCamera(
-        65,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        5000
-      );
-      camera.position.set(0, 6, -14);
-      const hemi = new THREE.HemisphereLight(0xddeeff, 0x041018, 0.6);
-      scene.add(hemi);
-      const dir = new THREE.DirectionalLight(0xffffff, 1.0);
-      dir.position.set(120, 200, 120);
-      dir.castShadow = true;
-      dir.shadow.mapSize.width = dir.shadow.mapSize.height = 2048;
-      scene.add(dir);
-      const amb = new THREE.AmbientLight(0x223344, 0.35);
-      scene.add(amb);
-      const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(10000, 10000),
-        new THREE.MeshStandardMaterial({ color: 0x245b48, roughness: 0.95 })
-      );
-      ground.rotation.x = -Math.PI / 2;
-      ground.receiveShadow = true;
-      scene.add(ground);
-
-      // ---------- World generator (procedural per-level) ----------
-      function generateTrack(level) {
-        const segments = 6 + Math.floor(level * 0.6);
-        const path = [];
-        let x = -200;
-        let z = 0;
-        for (let i = 0; i < segments; i++) {
-          x += 160 + Math.random() * 160;
-          z += (Math.random() - 0.5) * 300;
-          path.push(new THREE.Vector3(x, 0, z));
-        }
-        const obstacles = [];
-        const coins = [];
-        const obsCount = 4 + Math.floor(level * 0.6);
-        for (let o = 0; o < obsCount; o++) {
-          const wp = path[Math.floor(Math.random() * path.length)];
-          obstacles.push({
-            pos: new THREE.Vector3(
-              wp.x + (Math.random() - 0.5) * 120,
-              1.0,
-              wp.z + (Math.random() - 0.5) * 120
-            ),
-            size: 14 + Math.random() * 36,
-          });
-        }
-        const coinCount = 8 + Math.floor(level * 0.9);
-        for (let c = 0; c < coinCount; c++) {
-          const idx = Math.floor(Math.random() * (path.length - 1));
-          const a = path[idx];
-          const b = path[idx + 1] || a;
-          const t = Math.random();
-          const cx = a.x + (b.x - a.x) * t + (Math.random() - 0.5) * 60;
-          const cz = a.z + (b.z - a.z) * t + (Math.random() - 0.5) * 40;
-          coins.push(new THREE.Vector3(cx, 1.6, cz));
-        }
-        const trees = [];
-        const buildings = [];
-        const dunes = [];
-        for (let i = 0; i < 120; i++) {
-          const rx = -500 + Math.random() * 800;
-          const rz = -400 + Math.random() * 1200;
-          if (rx < -50) trees.push(new THREE.Vector3(rx, 0, rz));
-          else if (rx < 200) buildings.push(new THREE.Vector3(rx, 0, rz));
-          else dunes.push(new THREE.Vector3(rx, 0, rz));
-        }
-        const finish = path[path.length - 1]
-          .clone()
-          .add(new THREE.Vector3(140, 0, 0));
-        return { path, obstacles, coins, trees, buildings, dunes, finish };
-      }
-
-      // State
-      let levelIndex = 1;
-      let world = generateTrack(levelIndex);
-
-      // Path mesh
-      let pathMesh;
-      function buildPath(path) {
-        if (pathMesh) {
-          scene.remove(pathMesh);
-          pathMesh.geometry.dispose();
-        }
-        const points = [new THREE.Vector3(-260, 0, 0)]
-          .concat(path)
-          .concat([
-            new THREE.Vector3(
-              path[path.length - 1].x + 160,
-              0,
-              path[path.length - 1].z
-            ),
-          ]);
-        const curve = new THREE.CatmullRomCurve3(points);
-        const geo = new THREE.TubeGeometry(curve, 300, 36, 12, false);
-        const mat = new THREE.MeshStandardMaterial({
-          color: 0x2e3336,
-          roughness: 0.9,
-        });
-        pathMesh = new THREE.Mesh(geo, mat);
-        pathMesh.receiveShadow = true;
-        scene.add(pathMesh);
-      }
-      buildPath(world.path);
-
-      // Groups
-      const obstaclesGroup = new THREE.Group();
-      scene.add(obstaclesGroup);
-      const coinsGroup = new THREE.Group();
-      scene.add(coinsGroup);
-      const treesGroup = new THREE.Group();
-      scene.add(treesGroup);
-      const buildingsGroup = new THREE.Group();
-      scene.add(buildingsGroup);
-      const dunesGroup = new THREE.Group();
-      scene.add(dunesGroup);
-
-      // populate functions
-      function addTree(pos) {
-        const trunk = new THREE.CylinderGeometry(0.9, 0.9, 4, 8);
-        const t = new THREE.Mesh(
-          trunk,
-          new THREE.MeshStandardMaterial({ color: 0x6b3b1f })
-        );
-        t.position.set(pos.x, 2, pos.z);
-        const foliage = new THREE.ConeGeometry(
-          3.5 + Math.random() * 2,
-          8 + Math.random() * 3,
-          8
-        );
-        const f = new THREE.Mesh(
-          foliage,
-          new THREE.MeshStandardMaterial({ color: 0x2fbf6c })
-        );
-        f.position.set(pos.x, 6, pos.z);
-        treesGroup.add(t);
-        treesGroup.add(f);
-      }
-      function addBuilding(pos) {
-        const h = 10 + Math.random() * 40;
-        const w = 8 + Math.random() * 24;
-        const d = 8 + Math.random() * 24;
-        const b = new THREE.Mesh(
-          new THREE.BoxGeometry(w, h, d),
-          new THREE.MeshStandardMaterial({ color: 0x222a33, roughness: 0.8 })
-        );
-        b.position.set(pos.x, h / 2, pos.z);
-        buildingsGroup.add(b);
-      }
-      function addDune(pos) {
-        const d = new THREE.Mesh(
-          new THREE.BoxGeometry(
-            20 + Math.random() * 30,
-            4 + Math.random() * 6,
-            12 + Math.random() * 30
-          ),
-          new THREE.MeshStandardMaterial({ color: 0xd6c094, roughness: 1 })
-        );
-        d.position.set(pos.x, 2, pos.z);
-        dunesGroup.add(d);
-      }
-
-      function populateEnvironment() {
-        treesGroup.clear();
-        buildingsGroup.clear();
-        dunesGroup.clear();
-        for (const t of world.trees) addTree(t);
-        for (const b of world.buildings) addBuilding(b);
-        for (const d of world.dunes) addDune(d);
-      }
-
-      function populateEntities() {
-        obstaclesGroup.clear();
-        coinsGroup.clear();
-        for (const o of world.obstacles) {
-          const mesh = new THREE.Mesh(
-            new THREE.BoxGeometry(o.size, o.size, o.size),
-            new THREE.MeshStandardMaterial({ color: 0x8b2e2e })
-          );
-          mesh.position.copy(o.pos);
-          obstaclesGroup.add(mesh);
-        }
-        for (const cp of world.coins) {
-          const mesh = new THREE.Mesh(
-            new THREE.CylinderGeometry(4, 4, 1.6, 18),
-            new THREE.MeshStandardMaterial({
-              color: 0xffd54f,
-              metalness: 0.9,
-              emissive: 0xffb84d,
-              emissiveIntensity: 0.7,
-            })
-          );
-          mesh.position.copy(cp);
-          mesh.rotation.x = Math.PI / 2;
-          coinsGroup.add(mesh);
-        } // finish marker
-        if (world.finishMesh && world.finishMesh.parent)
-          scene.remove(world.finishMesh);
-        const finishGeom = new THREE.BoxGeometry(18, 2, 18);
-        const finishMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        const finishMesh = new THREE.Mesh(finishGeom, finishMat);
-        finishMesh.position.copy(world.finish).add(new THREE.Vector3(0, 1, 0));
-        scene.add(finishMesh);
-        world.finishMesh = finishMesh;
-      }
-
-      populateEntities();
-      populateEnvironment();
-
-      // --- Car shapes: different meshes per car type ---
-      function makeCarShape(type, color = 0x2196f3) {
-        // type: 'starter','sport','truck','suv','classic'
-        const g = new THREE.Group();
-        if (type === "sport") {
-          const body = new THREE.BoxGeometry(6, 1.8, 12);
-          const mesh = new THREE.Mesh(
-            body,
-            new THREE.MeshStandardMaterial({
-              color,
-              metalness: 0.4,
-              roughness: 0.25,
-            })
-          );
-          mesh.position.y = 1.4;
-          g.add(mesh);
-          const spoiler = new THREE.BoxGeometry(4, 0.4, 1.4);
-          const s = new THREE.Mesh(
-            spoiler,
-            new THREE.MeshStandardMaterial({ color: 0x041422 })
-          );
-          s.position.set(0, 1.9, 6);
-          g.add(s);
-        } else if (type === "truck") {
-          const cab = new THREE.BoxGeometry(7.6, 3.0, 10);
-          const cabm = new THREE.Mesh(
-            cab,
-            new THREE.MeshStandardMaterial({
-              color,
-              metalness: 0.2,
-              roughness: 0.5,
-            })
-          );
-          cabm.position.y = 1.9;
-          g.add(cabm);
-          const bed = new THREE.BoxGeometry(6.6, 1.8, 6);
-          const bedm = new THREE.Mesh(
-            bed,
-            new THREE.MeshStandardMaterial({ color: 0x2b2b2b })
-          );
-          bedm.position.set(0, 1.0, -3.5);
-          g.add(bedm);
-        } else if (type === "suv") {
-          const body = new THREE.BoxGeometry(7.2, 2.6, 13.2);
-          const mesh = new THREE.Mesh(
-            body,
-            new THREE.MeshStandardMaterial({
-              color,
-              metalness: 0.2,
-              roughness: 0.35,
-            })
-          );
-          mesh.position.y = 1.7;
-          g.add(mesh);
-          const roof = new THREE.BoxGeometry(4.2, 0.9, 4.6);
-          const roofM = new THREE.Mesh(
-            roof,
-            new THREE.MeshStandardMaterial({
-              color: 0x061424,
-              opacity: 0.7,
-              transparent: true,
-            })
-          );
-          roofM.position.set(0, 2.4, -0.4);
-          g.add(roofM);
-        } else if (type === "classic") {
-          const body = new THREE.BoxGeometry(8.0, 2.6, 12.0);
-          const mesh = new THREE.Mesh(
-            body,
-            new THREE.MeshStandardMaterial({
-              color,
-              metalness: 0.15,
-              roughness: 0.4,
-            })
-          );
-          mesh.position.y = 1.7;
-          g.add(mesh);
-          const chrome = new THREE.Mesh(
-            new THREE.BoxGeometry(8.0, 0.3, 12.0),
-            new THREE.MeshStandardMaterial({ color: 0xd4d4d4 })
-          );
-          chrome.position.y = 1.1;
-          g.add(chrome);
-        } else {
-          // starter
-          const body = new THREE.BoxGeometry(7.2, 2.6, 13.2);
-          const mesh = new THREE.Mesh(
-            body,
-            new THREE.MeshStandardMaterial({
-              color,
-              metalness: 0.2,
-              roughness: 0.35,
-            })
-          );
-          mesh.position.y = 1.7;
-          g.add(mesh);
-        }
-        // wheels (same placement)
-        const wheelGeo = new THREE.CylinderGeometry(1.3, 1.3, 0.8, 16);
-        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0b0b0b });
-        const wheelPositions = [
-          [-3.2, 0.6, 5.2],
-          [3.2, 0.6, 5.2],
-          [-3.2, 0.6, -5.2],
-          [3.2, 0.6, -5.2],
-        ];
-        const wheels = [];
-        for (const p of wheelPositions) {
-          const w = new THREE.Mesh(wheelGeo, wheelMat);
-          w.rotation.z = Math.PI / 2;
-          w.position.set(p[0], p[1], p[2]);
-          g.add(w);
-          wheels.push(w);
-        }
-        g.userData.wheels = wheels;
-        return g;
-      }
-
-      // car catalog with shapes
-      const CAR_CATALOG = [
-        { id: 0, name: "Starter", type: "starter", color: 0x2196f3, price: 0 },
-        {
-          id: 1,
-          name: "Crimson Sport",
-          type: "sport",
-          color: 0xff3b3b,
-          price: 120,
-        },
-        {
-          id: 2,
-          name: "Verdant Truck",
-          type: "truck",
-          color: 0x4caf50,
-          price: 260,
-        },
-        { id: 3, name: "Shadow SUV", type: "suv", color: 0x111827, price: 520 },
-        {
-          id: 4,
-          name: "Gold Classic",
-          type: "classic",
-          color: 0xffd54f,
-          price: 1024,
-        },
-      ];
-
-      // player state
-      let player = {
-        mesh: makeCarShape("starter", 0x2196f3),
-        speed: 0,
-        angle: 0,
-        coins: 0,
-      };
-      player.mesh.position.set(world.path[0].x - 60, 0, world.path[0].z);
-      player.mesh.scale.set(1.4, 1.4, 1.4);
-      scene.add(player.mesh);
-
-      function applyCar(id) {
-        const c = CAR_CATALOG.find((x) => x.id === id) || CAR_CATALOG[0];
-        scene.remove(player.mesh);
-        player.mesh = makeCarShape(c.type, c.color);
-        player.mesh.scale.set(1.4, 1.4, 1.4);
-        player.mesh.position.set(world.path[0].x - 60, 0, world.path[0].z);
-        scene.add(player.mesh);
-        if (currentUser) {
-          currentUser.selected = id;
-          saveUserToStorage(currentUser);
-        }
-      }
-
-      // ---------- Minimap (full map overlay) ----------
-      const minican = document.getElementById("minimap");
-      const mmRenderer = new THREE.WebGLRenderer({
-        antialias: false,
-        alpha: true,
-        canvas: minican,
-      });
-      mmRenderer.setSize(260, 160);
-      const mmCamera = new THREE.OrthographicCamera(
-        -220,
-        220,
-        140,
-        -140,
-        -1000,
-        1000
-      );
-      mmCamera.up.set(0, 0, -1);
-      mmCamera.position.set(0, 400, 0);
-      mmCamera.lookAt(0, 0, 0);
-
-      // full map overlay
-      const fullMapOverlay = document.getElementById("fullMapOverlay");
-      const fullMapDiv = document.getElementById("fullMap");
-      const btnFullMap = document.getElementById("btnFullMap");
-      btnFullMap.addEventListener("click", () => {
-        // render simple SVG map in overlay
-        fullMapOverlay.style.display = "flex";
-        renderFullMapSVG();
-      });
-      fullMapOverlay.addEventListener("click", () => {
-        fullMapOverlay.style.display = "none";
-      });
-
-      function renderFullMapSVG() {
-        // draw a simple SVG representing path and coins
-        const pad = 40;
-        const w = fullMapDiv.clientWidth || window.innerWidth * 0.88;
-        const h = fullMapDiv.clientHeight || window.innerHeight * 0.88;
-        // compute bounds for world.path
-        const pts = [{ x: player.mesh.position.x, z: player.mesh.position.z }]
-          .concat(world.path)
-          .concat([{ x: world.finish.x, z: world.finish.z }]);
-        let minx = Infinity,
-          maxx = -Infinity,
-          minz = Infinity,
-          maxz = -Infinity;
-        pts.forEach((p) => {
-          minx = Math.min(minx, p.x);
-          maxx = Math.max(maxx, p.x);
-          minz = Math.min(minz, p.z);
-          maxz = Math.max(maxz, p.z);
-        });
-        const sx = (w - pad * 2) / Math.max(1, maxx - minx);
-        const sz = (h - pad * 2) / Math.max(1, maxz - minz);
-        const scale = Math.min(sx, sz);
-        let svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg" style="background:#021218;border-radius:8px">`;
-        // path
-        let pathStr = "";
-        for (let i = 0; i < world.path.length; i++) {
-          const p = world.path[i];
-          const x = pad + (p.x - minx) * scale;
-          const y = pad + (p.z - minz) * scale;
-          pathStr += `${i === 0 ? "M" : "L"} ${x} ${y} `;
-        }
-        svg += `<path d='${pathStr}' stroke='#8ab' stroke-width='6' fill='none' stroke-linecap='round' stroke-linejoin='round' opacity='0.9'/>`;
-        // coins
-        for (const c of world.coins) {
-          const x = pad + (c.x - minx) * scale;
-          const y = pad + (c.z - minz) * scale;
-          svg += `<circle cx='${x}' cy='${y}' r='4' fill='#ffd54f'/>`;
-        }
-        // player
-        const px = pad + (player.mesh.position.x - minx) * scale;
-        const py = pad + (player.mesh.position.z - minz) * scale;
-        svg += `<circle cx='${px}' cy='${py}' r='6' fill='#4dd0e1'/>`;
-        svg += `</svg>`;
-        fullMapDiv.innerHTML = svg;
-      }
-
-      // ---------- Controls ----------
-      const controlState = {
-        left: false,
-        right: false,
-        forward: false,
-        brake: false,
-        boost: false,
-      };
-      window.addEventListener("keydown", (e) => {
-        const k = e.key.toLowerCase();
-        if (k === "arrowleft" || k === "a") controlState.left = true;
-        if (k === "arrowright" || k === "d") controlState.right = true;
-        if (k === "arrowup" || k === "w") controlState.forward = true;
-        if (k === "arrowdown" || k === "s") controlState.brake = true;
-        if (k === "shift") controlState.boost = true;
-        if (k === "m") {
-          document.getElementById("minimapWrapper").style.display =
-            document.getElementById("minimapWrapper").style.display === "none"
-              ? "block"
-              : "none";
-        }
-        if (k === "s") {
-          document.getElementById("shopOverlay").style.display = "block";
-          refreshShop();
-        }
-        if (k === "r") {
-          restartLevel();
-        }
-        if (k === "n") {
-          nextLevel();
-        }
-      });
-      window.addEventListener("keyup", (e) => {
-        const k = e.key.toLowerCase();
-        if (k === "arrowleft" || k === "a") controlState.left = false;
-        if (k === "arrowright" || k === "d") controlState.right = false;
-        if (k === "arrowup" || k === "w") controlState.forward = false;
-        if (k === "arrowdown" || k === "s") controlState.brake = false;
-        if (k === "shift") controlState.boost = false;
-      });
-
-      function bindBtn(id, flag) {
-        const el = document.getElementById(id);
-        el.addEventListener("pointerdown", () => {
-          controlState[flag] = true;
-        });
-        el.addEventListener("pointerup", () => {
-          controlState[flag] = false;
-        });
-        el.addEventListener("pointerleave", () => {
-          controlState[flag] = false;
-        });
-      }
-      bindBtn("btnLeft", "left");
-      bindBtn("btnRight", "right");
-      bindBtn("btnForward", "forward");
-      bindBtn("btnBrake", "brake");
-      bindBtn("btnBoost", "boost");
-      document.getElementById("btnShop").addEventListener("click", () => {
-        document.getElementById("shopOverlay").style.display = "block";
-        refreshShop();
-      });
-
-      // ---------- Shop & user persistence ----------
-      function refreshShop() {
-        const list = document.getElementById("carsList");
-        list.innerHTML = "";
-        for (const c of CAR_CATALOG) {
-          const div = document.createElement("div");
-          div.className = "car-card";
-          const owned =
-            currentUser &&
-            currentUser.owned &&
-            currentUser.owned.includes(c.id);
-          div.innerHTML = `<div style="width:68px;height:46px;border-radius:8px;background:#07191b;display:flex;align-items:center;justify-content:center"><div style="width:48px;height:28px;background:${
-            "#" + c.color.toString(16).padStart(6, "0")
-          };border-radius:6px"></div></div><div style="flex:1"><div style="font-weight:600">${
-            c.name
-          }</div><div style="opacity:.7;font-size:13px">Price: ${c.price} ✪ ${
-            owned
-              ? '<span style="color:#7de27d;margin-left:8px">(Owned)</span>'
-              : ""
-          }</div></div>`;
-          div.dataset.id = c.id;
-          div.addEventListener("click", () => {
-            document
-              .querySelectorAll(".car-card")
-              .forEach((x) => (x.style.outline = "none"));
-            div.style.outline = "2px solid rgba(255,255,255,0.06)";
-            selectedShopCar = c.id;
-            document.getElementById("shopSelected").innerText = c.name;
-          });
-          list.appendChild(div);
-        }
-        selectedShopCar = currentUser ? currentUser.selected : 0;
-        document.getElementById("shopSelected").innerText = CAR_CATALOG.find(
-          (x) => x.id === selectedShopCar
-        ).name;
-        document.getElementById("shopCoins").innerText = currentUser
-          ? currentUser.coins
-          : 0;
-      }
-      let selectedShopCar = 0;
-
-      document.getElementById("buyBtn").addEventListener("click", () => {
-        if (!currentUser) {
-          alert("Please sign in first.");
-          return;
-        }
-        const car = CAR_CATALOG.find((x) => x.id === selectedShopCar);
-        if (!car) return;
-        const owned = currentUser.owned && currentUser.owned.includes(car.id);
-        if (owned) {
-          currentUser.selected = car.id;
-          applyCar(car.id);
-          saveUserToStorage(currentUser);
-          alert("Selected " + car.name);
-        } else {
-          if ((currentUser.coins || 0) >= car.price) {
-            currentUser.coins -= car.price;
-            currentUser.owned = currentUser.owned || [];
-            currentUser.owned.push(car.id);
-            currentUser.selected = car.id;
-            applyCar(car.id);
-            saveUserToStorage(currentUser);
-            alert("Purchased " + car.name);
-          } else alert("Not enough coins");
-        }
-        refreshShop();
-      });
-
-      // ---------- Coin collection, collisions, finish detection ----------
-      let collected = new Set();
-      function collectCoins() {
-        const ppos = player.mesh.position;
-        for (let i = 0; i < coinsGroup.children.length; i++) {
-          if (collected.has(i)) continue;
-          const coin = coinsGroup.children[i];
-          const d = coin.position.distanceTo(ppos);
-          if (d < 9.5) {
-            collected.add(i); // animate
-            coin.scale.set(0.01, 0.01, 0.01);
-            if (currentUser) {
-              currentUser.coins = (currentUser.coins || 0) + 5;
-              saveUserToStorage(currentUser);
-            } else {
-              // local guest
-              const guestKey = "guest_coins";
-              const prev = Number(localStorage.getItem(guestKey) || 0);
-              localStorage.setItem(guestKey, prev + 5);
-            }
-            setTimeout(() => {
-              if (coin.parent) coinsGroup.remove(coin);
-            }, 200);
-          }
-        }
-        // obstacles
-        for (const obs of obstaclesGroup.children) {
-          const d = obs.position.distanceTo(ppos);
-          if (
-            d <
-            12 +
-              Math.max(
-                obs.geometry.parameters.width || 8,
-                obs.geometry.parameters.depth || 8
-              )
-          ) {
-            player.speed *= -0.35;
-            player.mesh.position.add(
-              new THREE.Vector3(
-                -Math.sin(player.angle) * 6,
-                0,
-                Math.cos(player.angle) * 6
-              )
-            );
-          }
-        }
-      }
-
-      function checkFinish() {
-        const p = player.mesh.position;
-        const finish = world.finish;
-        const d = p.distanceTo(finish);
-        if (d < 18) {
-          showLevelComplete();
-        }
-      }
-
-      // ---------- Level complete overlay handling ----------
-      const overlay = document.getElementById("levelCompleteOverlay");
-      const nextLevelBtn = document.getElementById("nextLevelBtn");
-      const skipTo3Btn = document.getElementById("skipTo3Btn");
-      const closeOverlayBtn = document.getElementById("closeOverlayBtn");
-      function showLevelComplete() {
-        controlState.left =
-          controlState.right =
-          controlState.forward =
-          controlState.brake =
-          controlState.boost =
-            false;
-        overlay.style.display = "block";
-        document.getElementById("completeLevel").innerText = levelIndex;
-        document.getElementById("completeCoins").innerText = currentUser
-          ? currentUser.coins
-          : localStorage.getItem("guest_coins") || 0;
-      }
-      nextLevelBtn.addEventListener("click", () => {
-        overlay.style.display = "none";
-        levelIndex = Math.min(TOTAL_LEVELS, levelIndex + 1);
-        restartLevel();
-        document.getElementById("levelLabel").innerText = levelIndex;
-      });
-      skipTo3Btn.addEventListener("click", () => {
-        overlay.style.display = "none";
-        levelIndex = 3;
-        restartLevel();
-        document.getElementById("levelLabel").innerText = levelIndex;
-      });
-      closeOverlayBtn.addEventListener("click", () => {
-        overlay.style.display = "none";
-      });
-
-      // ---------- Restart / Next level ----------
-      function restartLevel() {
-        world = generateTrack(levelIndex);
-        buildPath(world.path);
-        populateEntities();
-        populateEnvironment();
-        player.mesh.position.set(world.path[0].x - 60, 0, world.path[0].z);
-        player.speed = 0;
-        player.angle = 0;
-        collected = new Set();
-        levelStart = performance.now();
-      }
-      function nextLevel() {
-        levelIndex = Math.min(TOTAL_LEVELS, levelIndex + 1);
-        restartLevel();
-        document.getElementById("levelLabel").innerText = levelIndex;
-      }
-
-      // ---------- Animation loop ----------
-      let last = performance.now();
-      let levelStart = performance.now();
-      function animate() {
-        requestAnimationFrame(animate);
-        const now = performance.now();
-        const dt = Math.min(0.06, (now - last) / 1000);
-        last = now;
-        // physics
-        const accelBase = 0.1;
-        if (controlState.forward)
-          player.speed += accelBase * (controlState.boost ? 1.9 : 1);
-        if (controlState.brake) player.speed -= accelBase * 1.4;
-        else player.speed *= 0.995;
-        const maxSpeed = 4.2 + levelIndex * 0.12;
-        player.speed = Math.max(-1.8, Math.min(player.speed, maxSpeed));
-        const steer = 0.035 + Math.abs(player.speed) / 220;
-        if (controlState.left) player.angle += steer;
-        if (controlState.right) player.angle -= steer;
-        const dx = Math.sin(player.angle) * player.speed;
-        const dz = Math.cos(player.angle) * player.speed;
-        player.mesh.position.x += dx;
-        player.mesh.position.z += dz;
-        player.mesh.rotation.y = player.angle;
-        if (player.mesh.userData.wheels)
-          for (const w of player.mesh.userData.wheels)
-            w.rotation.x += player.speed * 0.12;
-        updateCamera();
-        collectCoins();
-        checkFinish();
-        renderer.render(scene, camera);
-        mmCamera.position.set(
-          player.mesh.position.x,
-          420,
-          player.mesh.position.z
-        );
-        mmCamera.lookAt(player.mesh.position.x, 0, player.mesh.position.z);
-        mmRenderer.render(scene, mmCamera);
-        document.getElementById("timeLabel").innerText = (
-          (now - levelStart) /
-          1000
-        ).toFixed(2);
-      }
-      requestAnimationFrame(animate);
-
-      // ---------- Camera update ----------
-      function updateCamera() {
-        const pos = player.mesh.position.clone();
-        const behind = new THREE.Vector3(
-          Math.sin(player.angle) * -1,
-          0,
-          Math.cos(player.angle) * -1
-        ).multiplyScalar(16);
-        const desired = pos.clone().add(behind).add(new THREE.Vector3(0, 6, 0));
-        camera.position.lerp(desired, 0.08);
-        camera.lookAt(pos.clone().add(new THREE.Vector3(0, 2.4, 0)));
-      }
-
-      // ---------- Apply user and save helpers ----------
-      function saveUserToStorage(user) {
-        if (!user || !user.mobile) return;
-        localStorage.setItem(userKey(user.mobile), JSON.stringify(user));
-        localStorage.setItem("last_logged_user", user.mobile); // send to Google Sheets if API_URL provided
-        if (API_URL) {
-          fetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              mobile: user.mobile,
-              name: user.name,
-              coins: user.coins,
-              owned: user.owned,
-              selected: user.selected,
-              level: levelIndex,
-            }),
-          }).catch((e) => console.warn("sync failed", e));
-        }
-      }
-
-      function loadCurrentUser() {
-        const last = localStorage.getItem("last_logged_user");
-        if (!last) return null;
-        const raw = localStorage.getItem(userKey(last));
-        if (!raw) return null;
-        try {
-          return JSON.parse(raw);
-        } catch (e) {
-          return null;
-        }
-      }
-
-      // If currentUser came from earlier, update UI & apply car
-      if (!currentUser) currentUser = loadCurrentUser();
-      if (currentUser) {
-        document.getElementById("userName").innerText = currentUser.name;
-        updateCoinsUI();
-        applyCar(currentUser.selected || 0);
-      }
-
-      // ---------- Initialize UI actions ----------
-      document.getElementById("btnFullMap").addEventListener("click", () => {
-        fullMapOverlay.style.display = "flex";
-        renderFullMapSVG();
-      });
-      fullMapOverlay.addEventListener("click", () => {
-        fullMapOverlay.style.display = "none";
-      });
-      document.getElementById("btnShop").addEventListener("click", () => {
-        document.getElementById("shopOverlay").style.display = "block";
-        refreshShop();
-      });
-
-      // close shop button
-      document.getElementById("closeShop").addEventListener("click", () => {
-        document.getElementById("shopOverlay").style.display = "none";
-      });
-
-      // initial UI
-      document.getElementById("totalLevels").innerText = TOTAL_LEVELS;
-      document.getElementById("levelLabel").innerText = levelIndex;
-      levelStart = performance.now();
-
-      // resize handling
-      window.addEventListener("resize", () => {
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        mmRenderer.setSize(260, 160);
-      });
-    </script>
-  </body>
+  </div>
+</div>
+
+<!-- Full map overlay -->
+<div id="fullMapOverlay"><div id="fullMap"></div></div>
+
+<!-- Level complete overlay -->
+<div id="levelCompleteOverlay">
+  <h2 id="completeTitle">Level Complete</h2>
+  <p id="completeMsg">You finished level <span id="completeLevel">1</span>!</p>
+  <div class="muted">Total coins: <span id="completeCoins">0</span></div>
+  <div class="actions">
+    <button id="nextLevelBtn" class="btn">Next Level</button>
+    <button id="skipTo3Btn" class="btn">Go to Level 3</button>
+    <button id="closeOverlayBtn" class="btn">Close</button>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="control-pad" id="controls">
+  <div class="control-row">
+    <div class="ctl-btn" id="btnLeft">◄</div>
+    <div class="ctl-btn" id="btnForward">▲</div>
+    <div class="ctl-btn" id="btnRight">►</div>
+  </div>
+  <div class="control-row">
+    <div class="ctl-btn brake" id="btnBrake">Brake</div>
+    <div class="ctl-btn" id="btnBoost">Boost</div>
+    <div class="ctl-btn" id="btnShop">Shop</div>
+  </div>
+  <div style="margin-top:8px; text-align:center">
+    <button id="btnMap" class="btn" style="width:120px">Full Map</button>
+  </div>
+</div>
+
+<div id="footerHints">
+  Use arrows or WASD to move, space to brake. Tap screen buttons on mobile.
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.161.1/build/three.min.js"></script>
+<script>
+// ================== Persistent User Handling ==================
+let currentUser = null;
+function saveUser() {
+  if(currentUser) localStorage.setItem('carGameUser', JSON.stringify(currentUser));
+}
+function loadUser() {
+  const data = localStorage.getItem('carGameUser');
+  if(data) currentUser = JSON.parse(data);
+}
+loadUser();
+if(currentUser) {
+  document.getElementById('userName').innerText = currentUser.name;
+  document.getElementById('coinsLabel').innerText = currentUser.coins||0;
+} else {
+  document.getElementById('loginModal').style.display = 'block';
+}
+document.getElementById('loginBtn').onclick = () => {
+  const name = document.getElementById('loginName').value.trim();
+  const mobile = document.getElementById('loginMobile').value.trim();
+  if(!name||!mobile){alert('Please fill both fields'); return;}
+  currentUser = {name:name,mobile:mobile,coins:0,selectedCar:'default'};
+  saveUser();
+  document.getElementById('userName').innerText = name;
+  document.getElementById('coinsLabel').innerText = '0';
+  document.getElementById('loginModal').style.display = 'none';
+};
+
+// ================== Three.js Setup ==================
+const container = document.getElementById('gameContainer');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x062122);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight,0.1,2000);
+camera.position.set(0,6,-14);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+container.appendChild(renderer.domElement);
+
+// Minimap
+const mmRenderer = new THREE.WebGLRenderer({antialias:true, canvas:document.getElementById('minimap')});
+mmRenderer.setSize(260,160);
+const mmCamera = new THREE.OrthographicCamera(-20,20,20,-20,0.1,2000);
+mmCamera.position.set(0,100,0);
+mmCamera.lookAt(0,0,0);
+
+// Light
+const light = new THREE.DirectionalLight(0xffffff,1.0);
+light.position.set(100,200,100);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0x404040,0.8));
+
+// ================== Ground ==================
+const groundGeo = new THREE.PlaneGeometry(2000,2000);
+const groundMat = new THREE.MeshStandardMaterial({color:0x0b2c3d});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2;
+scene.add(ground);
+
+// ================== Player Car ==================
+const playerGeo = new THREE.BoxGeometry(1.6,0.6,3);
+const playerMat = new THREE.MeshStandardMaterial({color:0xff5500});
+const playerMesh = new THREE.Mesh(playerGeo,playerMat);
+playerMesh.position.y = 0.3;
+scene.add(playerMesh);
+const player = {
+  mesh:playerMesh,
+  velocity:0,
+  angle:0
+};
+
+// ================== Track & Coins ==================
+let currentLevel = 1;
+const totalLevels = 1000;
+document.getElementById('totalLevels').innerText = totalLevels;
+document.getElementById('levelLabel').innerText = currentLevel;
+
+const coins = [];
+function generateLevel(level){
+  // Clear old coins
+  coins.forEach(c=>scene.remove(c));
+  coins.length=0;
+  for(let i=0;i<level+4;i++){
+    const coinGeo = new THREE.CylinderGeometry(0.4,0.4,0.1,16);
+    const coinMat = new THREE.MeshStandardMaterial({color:0xffd700});
+    const coin = new THREE.Mesh(coinGeo,coinMat);
+    coin.rotation.x = Math.PI/2;
+    coin.position.set(Math.random()*40-20,0.2, -i*10);
+    scene.add(coin);
+    coins.push(coin);
+  }
+}
+generateLevel(currentLevel);
+
+// ================== Input ==================
+const keys={left:false,right:false,forward:false,brake:false};
+document.addEventListener('keydown', e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA') keys.left=true;
+  if(e.code==='ArrowRight'||e.code==='KeyD') keys.right=true;
+  if(e.code==='ArrowUp'||e.code==='KeyW') keys.forward=true;
+  if(e.code==='Space') keys.brake=true;
+});
+document.addEventListener('keyup', e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA') keys.left=false;
+  if(e.code==='ArrowRight'||e.code==='KeyD') keys.right=false;
+  if(e.code==='ArrowUp'||e.code==='KeyW') keys.forward=false;
+  if(e.code==='Space') keys.brake=false;
+});
+
+// Mobile buttons
+document.getElementById('btnLeft').addEventListener('pointerdown',()=>keys.left=true);
+document.getElementById('btnLeft').addEventListener('pointerup',()=>keys.left=false);
+document.getElementById('btnRight').addEventListener('pointerdown',()=>keys.right=true);
+document.getElementById('btnRight').addEventListener('pointerup',()=>keys.right=false);
+document.getElementById('btnForward').addEventListener('pointerdown',()=>keys.forward=true);
+document.getElementById('btnForward').addEventListener('pointerup',()=>keys.forward=false);
+document.getElementById('btnBrake').addEventListener('pointerdown',()=>keys.brake=true);
+document.getElementById('btnBrake').addEventListener('pointerup',()=>keys.brake=false);
+
+// ================== Game Loop ==================
+let lastTime = performance.now();
+let levelStart = performance.now();
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = (now-lastTime)/1000;
+  lastTime=now;
+
+  // Movement
+  if(keys.forward) player.velocity+=dt*15;
+  else player.velocity*=0.98;
+  if(keys.brake) player.velocity*=0.92;
+  if(keys.left) player.angle+=dt*2;
+  if(keys.right) player.angle-=dt*2;
+
+  player.mesh.rotation.y = player.angle;
+  player.mesh.position.x += Math.sin(player.angle)*player.velocity*dt;
+  player.mesh.position.z += Math.cos(player.angle)*player.velocity*dt;
+
+  // Coin collision
+  coins.forEach((c,i)=>{
+    if(c.position.distanceTo(player.mesh.position)<1){
+      scene.remove(c);
+      coins.splice(i,1);
+      currentUser.coins = (currentUser.coins||0)+1;
+      document.getElementById('coinsLabel').innerText=currentUser.coins;
+      saveUser();
+    }
+  });
+
+  // Level complete
+  if(coins.length===0){
+    document.getElementById('completeLevel').innerText=currentLevel;
+    document.getElementById('completeCoins').innerText=currentUser.coins;
+    document.getElementById('levelCompleteOverlay').style.display='block';
+  }
+
+  // Camera follow
+  const offset = new THREE.Vector3(0,6,-14);
+  const sin=Math.sin(player.angle);
+  const cos=Math.cos(player.angle);
+  camera.position.set(
+    player.mesh.position.x + sin*-offset.z,
+    player.mesh.position.y+offset.y,
+    player.mesh.position.z + cos*-offset.z
+  );
+  camera.lookAt(player.mesh.position.x, player.mesh.position.y+1.5, player.mesh.position.z);
+
+  // Minimap
+  mmCamera.position.set(player.mesh.position.x,80,player.mesh.position.z);
+  mmCamera.lookAt(player.mesh.position.x,0,player.mesh.position.z);
+
+  renderer.render(scene,camera);
+  mmRenderer.render(scene,mmCamera);
+
+  // HUD time
+  document.getElementById("timeLabel").innerText=((now-levelStart)/1000).toFixed(2);
+}
+animate();
+
+window.addEventListener("resize", ()=>{
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+});
+
+// ================== Level Complete Actions ==================
+document.getElementById('nextLevelBtn').onclick=()=>{
+  currentLevel=Math.min(currentLevel+1,totalLevels);
+  document.getElementById('levelLabel').innerText=currentLevel;
+  generateLevel(currentLevel);
+  levelStart = performance.now();
+  document.getElementById('levelCompleteOverlay').style.display='none';
+};
+document.getElementById('skipTo3Btn').onclick=()=>{
+  currentLevel=3;
+  document.getElementById('levelLabel').innerText=currentLevel;
+  generateLevel(currentLevel);
+  levelStart = performance.now();
+  document.getElementById('levelCompleteOverlay').style.display='none';
+};
+document.getElementById('closeOverlayBtn').onclick=()=>{
+  document.getElementById('levelCompleteOverlay').style.display='none';
+};
+
+// ================== Shop ==================
+document.getElementById('btnShop').onclick=()=>{document.getElementById('shopOverlay').style.display='block';};
+document.getElementById('closeShop').onclick=()=>{document.getElementById('shopOverlay').style.display='none';};
+document.getElementById('shopCoins').innerText = currentUser.coins||0;
+document.getElementById('shopSelected').innerText = currentUser.selectedCar||'Default';
+
+const carTypes = [
+  {name:'Red Racer',price:0,color:0xff5500},
+  {name:'Blue Bolt',price:10,color:0x0055ff},
+  {name:'Green Speeder',price:20,color:0x00ff55}
+];
+const carsList = document.getElementById('carsList');
+carTypes.forEach((c,i)=>{
+  const div=document.createElement('div'); div.className='car-card';
+  div.innerHTML=`<div style="width:50px;height:30px;background:#${c.color.toString(16).padStart(6,'0')}; border-radius:4px;"></div>
+    <div style="flex:1">${c.name} <br>Price: ${c.price}</div>
+  `;
+  div.onclick=()=>{selectedCar=i; document.getElementById('shopSelected').innerText=c.name;};
+  carsList.appendChild(div);
+});
+let selectedCar=0;
+document.getElementById('buyBtn').onclick=()=>{
+  const c = carTypes[selectedCar];
+  if(c.price<=currentUser.coins){
+    currentUser.coins -= c.price;
+    currentUser.selectedCar=c.name;
+    document.getElementById('coinsLabel').innerText=currentUser.coins;
+    document.getElementById('shopCoins').innerText=currentUser.coins;
+    document.getElementById('shopSelected').innerText=c.name;
+    player.mesh.material.color.setHex(c.color);
+    saveUser();
+  } else {alert('Not enough coins');}
+};
+
+// ================== Full Map ==================
+document.getElementById('btnMap').onclick=()=>{document.getElementById('fullMapOverlay').style.display='flex';};
+document.getElementById('fullMapOverlay').onclick=()=>{document.getElementById('fullMapOverlay').style.display='none';};
+</script>
+</body>
 </html>
