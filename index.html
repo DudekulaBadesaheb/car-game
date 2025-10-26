@@ -167,6 +167,41 @@
           display: block;
         }
       }
+      /* Level complete overlay */
+      #levelCompleteOverlay {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 200;
+        background: linear-gradient(
+          180deg,
+          rgba(2, 8, 10, 0.98),
+          rgba(8, 14, 18, 0.98)
+        );
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+        display: none;
+        min-width: 360px;
+        text-align: center;
+      }
+      #levelCompleteOverlay h2 {
+        margin: 0 0 8px 0;
+      }
+      #levelCompleteOverlay p {
+        opacity: 0.9;
+      }
+      #levelCompleteOverlay .actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 12px;
+      }
+      .muted {
+        opacity: 0.8;
+        font-size: 13px;
+      }
     </style>
   </head>
   <body>
@@ -231,6 +266,19 @@
       </div>
     </div>
 
+    <div id="levelCompleteOverlay">
+      <h2 id="completeTitle">Level Complete</h2>
+      <p id="completeMsg">
+        You finished level <span id="completeLevel">1</span>!
+      </p>
+      <div class="muted">Coins earned: <span id="completeCoins">0</span></div>
+      <div class="actions">
+        <button id="nextLevelBtn" class="btn">Next Level</button>
+        <button id="skipTo3Btn" class="btn">Go to Level 3</button>
+        <button id="closeOverlayBtn" class="btn">Close</button>
+      </div>
+    </div>
+
     <div id="footerHints">
       Controls: W/A/S/D or ←→↑↓ • Use on-screen buttons (bottom-right) on touch
       • Shift=Boost • R=Restart • N=Next • M=Toggle minimap • S=Shop
@@ -238,13 +286,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
     <script>
-      /* Full 3D Car Game – improved controls, coin collection, environments (forest/city/desert)
-   - Manual on-screen buttons (left, forward, right, brake, boost, shop)
-   - Coins collect properly and increment saved coins
-   - Trees, buildings and dunes added across the world
-   - Single-file; open in modern browser
-*/
-
       // --- Setup renderer & scene ---
       const container = document.getElementById("gameContainer");
       const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -337,7 +378,11 @@
           else if (rx < 200) buildings.push(new THREE.Vector3(rx, 0, rz));
           else dunes.push(new THREE.Vector3(rx, 0, rz));
         }
-        return { path, obstacles, coins, trees, buildings, dunes };
+        // finish point at the last path point
+        const finish = path[path.length - 1]
+          .clone()
+          .add(new THREE.Vector3(140, 0, 0));
+        return { path, obstacles, coins, trees, buildings, dunes, finish };
       }
       let world = generateTrack(levelIndex);
 
@@ -472,6 +517,13 @@
           mesh.castShadow = true;
           coinsGroup.add(mesh);
         }
+        // finish marker
+        const finishGeom = new THREE.BoxGeometry(18, 2, 18);
+        const finishMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        const finishMesh = new THREE.Mesh(finishGeom, finishMat);
+        finishMesh.position.copy(world.finish).add(new THREE.Vector3(0, 1, 0));
+        scene.add(finishMesh);
+        world.finishMesh = finishMesh;
       }
       populateEntities();
       populateEnvironment();
@@ -806,6 +858,48 @@
         }
       }
 
+      // --- Finish detection & overlay handling ---
+      const overlay = document.getElementById("levelCompleteOverlay");
+      const nextLevelBtn = document.getElementById("nextLevelBtn");
+      const skipTo3Btn = document.getElementById("skipTo3Btn");
+      const closeOverlayBtn = document.getElementById("closeOverlayBtn");
+      function checkFinish() {
+        const p = player.mesh.position;
+        const finish = world.finish;
+        const d = p.distanceTo(finish);
+        if (d < 18) {
+          // level complete
+          showLevelComplete();
+        }
+      }
+      function showLevelComplete() {
+        // stop player controls
+        controlState.left =
+          controlState.right =
+          controlState.forward =
+          controlState.brake =
+          controlState.boost =
+            false;
+        overlay.style.display = "block";
+        document.getElementById("completeLevel").innerText = levelIndex;
+        document.getElementById("completeCoins").innerText = save.coins || 0;
+      }
+      nextLevelBtn.addEventListener("click", () => {
+        overlay.style.display = "none";
+        levelIndex = Math.min(TOTAL_LEVELS, levelIndex + 1);
+        restart();
+        document.getElementById("levelLabel").innerText = levelIndex;
+      });
+      skipTo3Btn.addEventListener("click", () => {
+        overlay.style.display = "none";
+        levelIndex = 3;
+        restart();
+        document.getElementById("levelLabel").innerText = levelIndex;
+      });
+      closeOverlayBtn.addEventListener("click", () => {
+        overlay.style.display = "none";
+      });
+
       // --- Physics & animation loop ---
       let last = performance.now();
       let levelStart = performance.now();
@@ -841,6 +935,8 @@
         updateCamera();
         // collect coins & collisions
         collectCoins();
+        // finish check
+        checkFinish();
         // render main
         renderer.render(scene, camera);
         // render minimap
@@ -869,7 +965,11 @@
         player.speed = 0;
         player.angle = 0;
         collected = new Set();
-        levelStart = performance.now();
+        levelStart = performance.now(); // remove any previous finishMesh
+        if (world.finishMesh && world.finishMesh.parent)
+          scene.remove(world.finishMesh);
+        populateEntities();
+        populateEnvironment();
       }
       function nextLevel() {
         levelIndex = Math.min(TOTAL_LEVELS, levelIndex + 1);
@@ -884,7 +984,6 @@
       // initial save and UI
       saveGame();
       document.getElementById("levelLabel").innerText = levelIndex;
-
       // resize
       window.addEventListener("resize", () => {
         renderer.setSize(window.innerWidth, window.innerHeight);
